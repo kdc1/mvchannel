@@ -183,7 +183,7 @@
     // JSON 로드 (+ 실패시 fallback)
     async function load(){
       try{
-        const res = await fetch('/videos.json', {cache:'no-store'});
+        const res = await fetch('videos.json', {cache:'no-store'});
         if(!res.ok) throw new Error('missing');
         playlist = await res.json();
         $hint.textContent = '';
