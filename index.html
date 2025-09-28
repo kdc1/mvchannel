@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>뮤직비디오 플레이어 (JSON 순차 재생)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js" integrity="sha512-TelkP3PCMJv+viJSrasddz6gvv+c/H4prM2KzVWBVB4LpS2TjdURsVnbxSOtr3n9E8T30H+C2N8FfJ1sTCgrPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     :root { --pink:#f472b6; --pink-50:#fdf2f8; --pink-100:#fce7f3; --gray:#334155; --line:#e5e7eb; }
     *{ box-sizing:border-box; }
@@ -237,20 +238,20 @@
       if(saved){
         try{
           playlist = JSON.parse(saved);
-          $hint.textContent = '로컬에 저장된 리스트를 재생합니다.';
+          $hint.textContent = '로컬 리스트를 재생합니다. 드래그해서 순서를 바꿀 수 있습니다.';
         }catch(e){
           playlist = FALLBACK;
-          $hint.textContent = '⚠️ 로컬 리스트를 불러오는 데 실패하여 기본 리스트로 재생합니다.';
+          $hint.textContent = '⚠️ 로컬 리스트 로딩 실패. 기본 리스트로 재생합니다.';
         }
       } else {
         try{
           const res = await fetch('videos.json', {cache:'no-store'});
           if(!res.ok) throw new Error('missing');
           playlist = await res.json();
-          $hint.textContent = '';
+          $hint.textContent = '재생목록을 드래그해서 순서를 바꿀 수 있습니다.';
         }catch(e){
           playlist = FALLBACK;
-          $hint.textContent = '⚠️ /videos.json 을 찾지 못해 기본 리스트로 재생합니다.';
+          $hint.textContent = '⚠️ /videos.json 로딩 실패. 기본 리스트로 재생합니다.';
         }
       }
       select(0,true);
@@ -269,6 +270,29 @@
     (async function init(){
       await loadYT();
       await load();
+
+      // 순서 변경 기능 활성화
+      new Sortable($list, {
+        animation: 150,
+        onEnd: (evt) => {
+          // 현재 재생중인 곡 정보 저장
+          const currentItem = playlist[current];
+
+          // playlist 배열 업데이트
+          const [movedItem] = playlist.splice(evt.oldIndex, 1);
+          playlist.splice(evt.newIndex, 0, movedItem);
+
+          // 순위(rank) 및 현재 재생 인덱스(current) 업데이트
+          playlist.forEach((item, index) => {
+            item.rank = index + 1;
+          });
+          current = playlist.indexOf(currentItem);
+
+          // 변경사항 저장 및 리스트 다시 렌더링
+          savePlaylist();
+          renderList();
+        }
+      });
     })();
   </script>
 </body>
