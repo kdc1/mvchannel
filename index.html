@@ -28,6 +28,7 @@
     .row .meta{ flex:1; min-width:0; }
     .row .artist{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .row .title{ font-size:12px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .playlist.sorting .row { cursor: grab; user-select: none; }
     footer{ position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); padding:6px 12px; font-size:11px; color:#64748b; display:flex; justify-content:space-between; }
     .hint{ margin-top:8px; font-size:12px; color:#64748b; }
   </style>
@@ -53,7 +54,10 @@
       </div>
 
       <div class="controls">
-        <button id="loopBtn" class="btn">반복</button>
+        <div>
+          <button id="loopBtn" class="btn">반복</button>
+          <button id="sortBtn" class="btn" style="margin-left: 8px;">순서 변경</button>
+        </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button id="prevBtn" class="btn btn-round">⏮️</button>
           <button id="playBtn" class="btn btn-round btn-primary">▶️</button>
@@ -100,6 +104,8 @@
     let loop = false;
     let isMuted = true; // 모바일 자동재생을 위해 기본 음소거
     let player; // YT.Player
+    let isSorting = false;
+    let sortable;
 
     const $badge = document.getElementById('badge');
     const $now = document.getElementById('now');
@@ -109,6 +115,7 @@
     const $next = document.getElementById('nextBtn');
     const $mute = document.getElementById('muteBtn');
     const $loop = document.getElementById('loopBtn');
+    const $sortBtn = document.getElementById('sortBtn');
     const $hint = document.getElementById('hint');
     const $addForm = document.getElementById('addForm');
     const $artistInput = document.getElementById('artistInput');
@@ -147,7 +154,7 @@
     function renderList(){
       $list.innerHTML = '';
       playlist.forEach((item, idx)=>{
-        const row = document.createElement('button');
+        const row = document.createElement('div');
         row.className = 'row' + (idx===current ? ' active' : '');
         row.innerHTML = `
           <div class="rank">${item.rank}</div>
@@ -157,7 +164,9 @@
           </div>
           <div style="font-size:12px;color:${idx===current?'#be185d':'#94a3b8'}">${idx===current?'● LIVE':'재생'}</div>
         `;
-        row.addEventListener('click',()=> select(idx));
+        row.addEventListener('click',()=> {
+          if(!isSorting) select(idx);
+        });
         $list.appendChild(row);
       });
     }
@@ -166,6 +175,7 @@
     function next(){ current = (current < playlist.length-1) ? current+1 : (loop ? 0 : playlist.length-1); select(current,true); }
 
     function select(idx, autoplay){
+      if(isSorting) return;
       current = idx;
       const id = vid(playlist[current].url);
       if(id){ mount(id); if(!autoplay && player){ player.pauseVideo?.(); $play.textContent='▶️'; } }
@@ -192,6 +202,20 @@
       loop = !loop; $loop.style.background = loop ? 'var(--pink)' : '#fff';
       $loop.style.color = loop ? '#fff' : 'inherit';
       $loop.style.borderColor = loop ? 'var(--pink)' : 'var(--line)';
+    });
+
+    $sortBtn.addEventListener('click', ()=>{
+      isSorting = !isSorting;
+      sortable.option('disabled', !isSorting);
+      $sortBtn.style.background = isSorting ? 'var(--pink)' : '#fff';
+      $sortBtn.style.color = isSorting ? '#fff' : 'inherit';
+      $sortBtn.style.borderColor = isSorting ? 'var(--pink)' : 'var(--line)';
+      $list.classList.toggle('sorting', isSorting);
+      if(isSorting){
+        $hint.textContent = '순서 변경 모드가 활성화되었습니다.';
+      } else {
+        $hint.textContent = '순서 변경이 완료되었습니다.';
+      }
     });
 
     // 플레이리스트를 로컬 스토리지에 저장
@@ -272,7 +296,8 @@
       await load();
 
       // 순서 변경 기능 활성화
-      new Sortable($list, {
+      sortable = new Sortable($list, {
+        disabled: !isSorting,
         animation: 150,
         onEnd: (evt) => {
           // 현재 재생중인 곡 정보 저장
