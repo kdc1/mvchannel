@@ -141,7 +141,7 @@
         }
       });
       updateNow();
-      renderList();
+      updateList(); // 리스트를 다시 그리지 않고 상태만 업데이트합니다.
     }
 
     function updateNow(){
@@ -151,24 +151,51 @@
       $now.textContent = `${item.artist} — ${item.title}`;
     }
 
-    function renderList(){
+    // 리스트의 DOM을 비파괴적으로 업데이트합니다. (곡 변경, 순서 변경 시 호출)
+    function updateList() {
+      Array.from($list.children).forEach((row, idx) => {
+        const item = playlist[idx];
+        if (!item) return;
+
+        // 순위 업데이트
+        row.querySelector('.rank').textContent = item.rank;
+
+        // 활성 상태 및 재생/라이브 텍스트 업데이트
+        const statusDiv = row.querySelector('.status');
+        if (idx === current) {
+          row.classList.add('active');
+          statusDiv.textContent = '● LIVE';
+          statusDiv.style.color = '#be185d';
+        } else {
+          row.classList.remove('active');
+          statusDiv.textContent = '재생';
+          statusDiv.style.color = '#94a3b8';
+        }
+      });
+    }
+
+    // 최초에 리스트 DOM을 생성합니다. (페이지 로드 시 호출)
+    function createList(){
       $list.innerHTML = '';
       playlist.forEach((item, idx)=>{
         const row = document.createElement('div');
-        row.className = 'row' + (idx===current ? ' active' : '');
+        row.className = 'row';
         row.innerHTML = `
           <div class="rank">${item.rank}</div>
           <div class="meta">
             <div class="artist">${item.artist}</div>
             <div class="title">${item.title}</div>
           </div>
-          <div style="font-size:12px;color:${idx===current?'#be185d':'#94a3b8'}">${idx===current?'● LIVE':'재생'}</div>
+          <div class="status" style="font-size:12px;"></div>
         `;
         row.addEventListener('click',()=> {
-          if(!isSorting) select(idx);
+          // DOM 요소로부터 현재 인덱스를 찾아 재생을 요청합니다.
+          const clickedIndex = Array.from($list.children).indexOf(row);
+          if(!isSorting) select(clickedIndex);
         });
         $list.appendChild(row);
       });
+      updateList(); // 생성된 리스트의 초기 상태(활성 곡 등)를 설정합니다.
     }
 
     function prev(){ current = (current>0) ? current-1 : (loop ? playlist.length-1 : 0); select(current,true); }
@@ -245,7 +272,24 @@
 
       playlist.push(newVideo);
       savePlaylist();
-      renderList();
+
+      // 새 DOM 요소만 추가하여 리스트를 다시 그리지 않도록 합니다.
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `
+        <div class="rank">${newVideo.rank}</div>
+        <div class="meta">
+          <div class="artist">${newVideo.artist}</div>
+          <div class="title">${newVideo.title}</div>
+        </div>
+        <div class="status" style="font-size:12px;">재생</div>
+      `;
+      row.addEventListener('click',()=> {
+        const clickedIndex = Array.from($list.children).indexOf(row);
+        if(!isSorting) select(clickedIndex);
+      });
+      $list.appendChild(row);
+      updateList(); // 새 항목 추가 후 전체 목록 상태 업데이트
 
       // 입력 폼 초기화
       $artistInput.value = '';
@@ -278,7 +322,8 @@
           $hint.textContent = '⚠️ /videos.json 로딩 실패. 기본 리스트로 재생합니다.';
         }
       }
-      select(0,true);
+      createList(); // DOM을 먼저 생성합니다.
+      select(0,true); // 그 다음 첫 곡을 재생합니다.
     }
 
     // YouTube Iframe API 스크립트 로드
@@ -315,7 +360,7 @@
 
           // 변경사항 저장 및 리스트 다시 렌더링
           savePlaylist();
-          renderList();
+          updateList();
         }
       });
     })();
